@@ -14,8 +14,8 @@ datasource db {
 
 model ApiKeys {
   id       String   @id @default(uuid())
-  username String
-  key      String
+  username String   @unique
+  key      String   @unique
   issuedOn DateTime @default(now())
   isValid  Boolean
 }
