@@ -12,19 +12,30 @@ datasource db {
   provider = "postgresql"
 }
 
+model ApiKeys {
+  id       String   @id @default(uuid())
+  username String
+  key      String
+  issuedOn DateTime @default(now())
+  isValid  Boolean
+}
+
 model Interview {
   id             String          @id @default(uuid())
   githubMetadata String
   status         InterviewStatus
   score          Int
   conversation   Message[]
+  createdOn      DateTime        @default(now())
 }
 
 model Message {
-  id          String    @id @default(uuid())
+  id          String            @id @default(uuid())
   message     String
   interviewId String
-  interview   Interview @relation(fields: [interviewId], references: [id])
+  type        ModelConversation
+  createdOn   DateTime          @default(now())
+  interview   Interview         @relation(fields: [interviewId], references: [id])
 }
 
 enum ModelConversation {
