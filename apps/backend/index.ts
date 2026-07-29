@@ -1,9 +1,9 @@
 import express from "express";
 import { PreInterviewBody } from "./types";
-import { scrapeGitHub } from "./scrapers/github"
+import { scrapeGitHub } from "./src/scrapers/github"
 import { prisma } from "./db";
 import cors from "cors";
-import { initSideBand } from "./sideband";
+import { initSideBand } from "./src/external/sideband";
 
 const app = express();
 app.use(express.json());
@@ -37,7 +37,7 @@ app.post("/api/v1/pre-interview", async (req, res) => {
     // Scrape linked by urself -> PLAY RIGHT + PROXY (DATA IMPULSE ) + DUMMY USERS
     //const linkedUsername = linkedInUrl.split("/").pop();
 
-    const userRepos = await scrapeGitHub(githubUsername);
+    const userRepos = await scrapeGitHub(githubUsername!);
 
     const interview = await prisma.interview.create({
         data: {
@@ -82,3 +82,54 @@ app.post("/api/v1/session/:interviewId", async (req, res) => {
 
 app.listen(3001);
 console.log("App running on port 3001");
+
+
+// index.ts - Basic WebSocket echo server with Bun
+// Bun.serve() handles both HTTP and WebSocket connections in a single function
+
+const server = Bun.serve({
+    port: 8080,
+
+    // Handle regular HTTP requests
+    fetch(request, server) {
+        const url = new URL(request.url);
+
+        // Upgrade HTTP connection to WebSocket when client requests it
+        if (url.pathname === "/transcript") {
+            const upgraded = server.upgrade(request);
+            if (upgraded) {
+                // Connection successfully upgraded to WebSocket
+                return undefined;
+            }
+            return new Response("WebSocket upgrade failed", { status: 400 });
+        }
+        return new Response("Not found", { status: 404 });
+    },
+
+    // WebSocket event handlers
+    websocket: {
+        // Called when a new WebSocket connection is established
+        open(ws) {
+            console.log("Client connected");
+        },
+
+        // Called when a message is received from the client
+        message(ws, message) {
+            console.log("Received:", message);
+            // Echo the message back to the client
+            ws.send(`Echo: ${message}`);
+        },
+
+        // Called when the connection is closed
+        close(ws, code, reason) {
+            console.log(`Client disconnected: ${code} - ${reason}`);
+        },
+
+        // Called when backpressure is relieved and the socket is ready to receive more data
+        drain(ws) {
+            console.log("Socket drained, ready for more data");
+        },
+    },
+});
+
+console.log(`WebSocket server running at http://localhost:${server.port}`);
