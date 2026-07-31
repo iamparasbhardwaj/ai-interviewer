@@ -1,10 +1,14 @@
 import { useEffect } from "react";
-import { useParams } from "react-router"
+import { useParams,useNavigate } from "react-router"
 import { useRef } from "react"
 import { BACKEND_URL,BACKEND_WS_URL } from "@/lib/configs";
 
 export function Interview() {
+    const navigate = useNavigate();
     const { interviewId } = useParams();
+    if (!interviewId) {
+        navigate('/', { replace: true });
+    }
     const audioRef = useRef<HTMLAudioElement>(null);
 
     useEffect(() => {
@@ -24,9 +28,7 @@ export function Interview() {
                 });
                 pc.addTrack(ms.getTracks()[0]!);
 
-                const socket = new WebSocket(`${BACKEND_WS_URL}/transcript`,[
-                    `${interviewId}`
-                ]);
+                const socket = new WebSocket(`${BACKEND_WS_URL}/transcript`,['interviewId' , interviewId]);
 
                 socket.onopen = () => {
                     const mediaRecorder = new MediaRecorder(ms,{mimeType: 'audio/webm'});
@@ -39,11 +41,13 @@ export function Interview() {
                 }
 
                 socket.onmessage = (message) => {
-                    const recieved = JSON.parse(message.data);
-                    const transcript = recieved.channel?.alternatives[0].transcript;
-                    if(transcript){
-                        console.log(transcript);
-                    }
+                    // const recieved = JSON.parse(message.data);
+                    // const transcript = recieved.channel?.alternatives[0].transcript;
+                    // if(transcript){
+                    //     console.log(transcript);
+                    // }
+
+                    console.log("events sent successfully to backend");
                 };
 
                 // Set up data channel for sending and receiving events

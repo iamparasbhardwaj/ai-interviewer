@@ -1,159 +1,111 @@
-# Turborepo starter
+# AI Interviewer
 
-This Turborepo starter is maintained by the Turborepo core team.
+An AI-powered technical interview platform. A candidate submits their GitHub (and LinkedIn) profile, and an AI interviewer conducts a real-time, voice-based technical interview over WebRTC using OpenAI's Realtime API — adapting its questions to the candidate's apparent experience level.
 
-## Using this example
+## How it works
 
-Run the following command:
+1. Candidate submits their GitHub/LinkedIn URLs from the frontend form.
+2. The backend scrapes the candidate's public GitHub repos for context and creates an `Interview` record in Postgres.
+3. The frontend opens a WebRTC connection and streams microphone audio; OpenAI's Realtime API conducts the spoken interview using a system prompt tuned for CS/software engineering interviews (see [sideband.ts](apps/backend/src/external/sideband.ts)).
+4. A companion WebSocket (`/transcript`) is intended to capture and persist the conversation transcript, feeding a scored result at the end.
 
-```sh
-npx create-turbo@latest
+## Architecture
+
+Monorepo managed with [Turborepo](https://turborepo.dev/) and Bun workspaces.
+
+```
+apps/
+  backend/    Express (REST) + Bun WebSocket server, Prisma/Postgres
+  frontend/   Bun + React 19 + React Router + Tailwind + shadcn/ui
+packages/
+  eslint-config/       shared ESLint config
+  typescript-config/   shared tsconfig bases
+  ui/                  shared React component package
 ```
 
-## What's inside?
+### Backend (`apps/backend`)
 
-This Turborepo includes the following packages/apps:
+- Express app on port `3001`:
+  - `POST /api/v1/pre-interview` — scrapes the candidate's GitHub repos and creates an `Interview` row.
+  - `POST /api/v1/session/:interviewId` — exchanges SDP with OpenAI's Realtime API to start a voice session.
+- Bun WebSocket server on port `8080`:
+  - `/transcript` — intended to receive audio/transcript data per interview and relay it onward (currently a stub, see [Project status](#project-status)).
+- Prisma models (`Interview`, `Message`, `ApiKeys`) backed by Postgres via `@prisma/adapter-pg`.
 
-### Apps and Packages
+### Frontend (`apps/frontend`)
 
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
+- Route flow: `/` (profile form) → `/interview/:id` (live voice interview) → `/result` (score/feedback).
+- Captures microphone audio via `RTCPeerConnection` and plays back the model's voice response.
 
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
+## Tech stack
 
-### Utilities
+- **Runtime/tooling:** Bun, TypeScript, Turborepo
+- **Backend:** Express, Prisma ORM, PostgreSQL, `ws`, Zod, Axios
+- **Frontend:** React 19, React Router 8, Tailwind CSS v4, shadcn/ui, sonner
+- **AI/voice:** OpenAI Realtime API, Deepgram (transcription — integration in progress)
 
-This Turborepo has some additional tools already setup for you:
+## Getting started
 
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
+### Prerequisites
 
-### Build
+- [Bun](https://bun.com) >= 1.3.14
+- PostgreSQL reachable at the `DATABASE_URL` you configure
+- An OpenAI API key with Realtime API access
+- A Deepgram API token (optional — not yet wired up)
 
-To build all apps and packages, run the following command:
+### 1. Install dependencies
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo build
+```bash
+bun install
 ```
 
-Without global `turbo`, use your package manager:
+### 2. Configure environment
 
-```sh
-cd my-turborepo
-npx turbo build
-bun dlx turbo build
-bun exec turbo build
+Create `apps/backend/.env`:
+
+```
+DATABASE_URL="postgres://postgres:postgres@localhost:5432/aiInterview"
+OPENAI_API_KEY="sk-..."
+DEEPGRAM_TOKEN="..."
 ```
 
-You can build a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+This file is gitignored — never commit real keys.
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
+### 3. Run database migrations
 
-```sh
-turbo build --filter=docs
+```bash
+cd apps/backend
+bunx prisma migrate deploy
 ```
 
-Without global `turbo`:
+### 4. Start the apps
 
-```sh
-npx turbo build --filter=docs
-bun exec turbo build --filter=docs
-bun exec turbo build --filter=docs
+From the repo root:
+
+```bash
+bun run dev
 ```
 
-### Develop
+This runs every app's `dev` task via Turborepo — backend REST on `http://localhost:3001`, backend WebSocket on `ws://localhost:8080`, and the frontend dev server (see [apps/frontend/package.json](apps/frontend/package.json)).
 
-To develop all apps and packages, run the following command:
+## Scripts
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
+Run from the repo root (fans out to all apps/packages via Turborepo):
 
-```sh
-cd my-turborepo
-turbo dev
-```
+| Command | Description |
+|---|---|
+| `bun run dev` | Start all apps in dev mode |
+| `bun run build` | Build all apps/packages |
+| `bun run lint` | Lint all apps/packages |
+| `bun run check-types` | Typecheck all apps/packages |
+| `bun run format` | Format `.ts`/`.tsx`/`.md` files with Prettier |
 
-Without global `turbo`, use your package manager:
+## Project status
 
-```sh
-cd my-turborepo
-npx turbo dev
-bun exec turbo dev
-bun exec turbo dev
-```
+This project is under active development. Known rough edges:
 
-You can develop a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo dev --filter=web
-```
-
-Without global `turbo`:
-
-```sh
-npx turbo dev --filter=web
-bun exec turbo dev --filter=web
-bun exec turbo dev --filter=web
-```
-
-### Remote Caching
-
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
-
-Turborepo can use a technique known as [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
-
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo login
-```
-
-Without global `turbo`, use your package manager:
-
-```sh
-cd my-turborepo
-npx turbo login
-bun exec turbo login
-bun exec turbo login
-```
-
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
-
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo link
-```
-
-Without global `turbo`:
-
-```sh
-npx turbo link
-bun exec turbo link
-bun exec turbo link
-```
-
-## Useful Links
-
-Learn more about the power of Turborepo:
-
-- [Tasks](https://turborepo.dev/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.dev/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.dev/docs/reference/configuration)
-- [CLI Usage](https://turborepo.dev/docs/reference/command-line-reference)
+- **Transcript/Deepgram pipeline is disabled.** [transcript.ts](apps/backend/src/controllers/transcript.ts) has its forwarding logic commented out, and [deepgram.ts](apps/backend/src/external/deepgram.ts) is an empty stub.
+- **SDP exchange between frontend and backend is commented out** in [Interview.tsx](apps/frontend/src/components/Interview.tsx) — the `/api/v1/session/:interviewId` call isn't currently wired up from the client.
+- **Result page is a placeholder** ([Result.tsx](apps/frontend/src/components/Result.tsx)).
+- **GitHub URL parsing doesn't validate malformed input yet** (see TODO in [index.ts](apps/backend/index.ts)).
+- `httpConfig.ts` and `wsConfig.ts` in `apps/backend/src/config` are currently empty.

@@ -4,6 +4,7 @@ import { scrapeGitHub } from "./src/scrapers/github"
 import { prisma } from "./db";
 import cors from "cors";
 import { initSideBand } from "./src/external/sideband";
+import { transcript } from "./src/controllers/transcript";
 
 const app = express();
 app.use(express.json());
@@ -107,29 +108,7 @@ const server = Bun.serve({
     },
 
     // WebSocket event handlers
-    websocket: {
-        // Called when a new WebSocket connection is established
-        open(ws) {
-            console.log("Client connected");
-        },
-
-        // Called when a message is received from the client
-        message(ws, message) {
-            console.log("Received:", message);
-            // Echo the message back to the client
-            ws.send(`Echo: ${message}`);
-        },
-
-        // Called when the connection is closed
-        close(ws, code, reason) {
-            console.log(`Client disconnected: ${code} - ${reason}`);
-        },
-
-        // Called when backpressure is relieved and the socket is ready to receive more data
-        drain(ws) {
-            console.log("Socket drained, ready for more data");
-        },
-    },
+    websocket: transcript
 });
 
 console.log(`WebSocket server running at http://localhost:${server.port}`);

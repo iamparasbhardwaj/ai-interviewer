@@ -1,7 +1,7 @@
 import type { ServerWebSocket } from "bun";
 import type { WSData } from "../types/websocket"
 
-export const transcriptController = {
+export const transcript = {
     open(ws: ServerWebSocket<WSData>) {
         console.log(`Client connected: ${ws.data.interviewId}`);
 
@@ -28,13 +28,14 @@ export const transcriptController = {
 
     message(ws: ServerWebSocket<WSData>, message: string | Buffer) {
         // raw audio chunk (ArrayBuffer/Blob) from MediaRecorder
-        const externalSocket = ws.data.externalSocket;
+        // const externalSocket = ws.data.externalSocket;
 
-        if (externalSocket && externalSocket.readyState === WebSocket.OPEN) {
-            externalSocket.send(message);
-        } else {
-            console.warn("External socket not ready — dropping chunk");
-        }
+        // if (externalSocket && externalSocket.readyState === WebSocket.OPEN) {
+        //     externalSocket.send(message);
+        // } else {
+        //     console.warn("External socket not ready — dropping chunk");
+        // }
+        console.log("message recueved");
     },
 
     close(ws: ServerWebSocket<WSData>) {
@@ -42,7 +43,7 @@ export const transcriptController = {
         ws.data.externalSocket?.close();
     },
 
-    error(ws: Bun.ServerWebSocket, error: Error) {
-        console.error("Client websocket error:", error);
-    },
+    // error(ws: Bun.ServerWebSocket, error: Error) {
+    //     console.error("Client websocket error:", error);
+    // },
 };
