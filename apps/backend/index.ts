@@ -2,6 +2,7 @@ import express from "express";
 import { PreInterviewBody } from "./types";
 import { scrapeGitHub } from "./src/scrapers/github"
 import { prisma } from "./db";
+import type { WSData } from "./src/types/websocket"
 import cors from "cors";
 import { initSideBand } from "./src/external/sideband";
 import { transcript } from "./src/controllers/transcript";
@@ -97,12 +98,20 @@ const server = Bun.serve({
 
         // Upgrade HTTP connection to WebSocket when client requests it
         if (url.pathname === "/transcript") {
-            const upgraded = server.upgrade(request);
-            if (upgraded) {
-                // Connection successfully upgraded to WebSocket
-                return undefined;
+            const interviewId = url.searchParams.get("interviewId");
+            if (!interviewId) {
+                return new Response("Missing interviewId", { status: 400 });
             }
-            return new Response("WebSocket upgrade failed", { status: 400 });
+            const sampleRate = Number(url.searchParams.get("sampleRate")) || 48000;
+            console.log(`Interview ID is ${interviewId}`);
+            const upgraded = server.upgrade(request, {
+                data: { interviewId, sampleRate } satisfies WSData,
+            });
+
+            if (!upgraded) {
+                return new Response("Upgrade failed", { status: 400 });
+            }
+            return; // upgrade() handles the response
         }
         return new Response("Not found", { status: 404 });
     },

@@ -28,7 +28,7 @@ export function initSideBand(callId: string, interviewId: string) {
     ws.on("message", function incoming(message: any) {
         const response = JSON.parse(message.toString());
         if (response.type === "response.done") {
-            console.log(JSON.stringify(response));
+            // console.log(JSON.stringify(response));
         }
     });
 }

@@ -1,4 +1,7 @@
+import type { InterviewAudioSession } from "../external/deepgram";
+
 export interface WSData {
     interviewId: string;
-    externalSocket: WebSocket | null;
+    sampleRate: number;
+    externalSocket?: InterviewAudioSession | null;
 }
