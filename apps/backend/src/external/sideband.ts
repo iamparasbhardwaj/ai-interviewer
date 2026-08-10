@@ -1,4 +1,5 @@
 import WebSocket from "ws";
+import { prisma } from "../../db";
 
 export function initSideBand(callId: string, interviewId: string) {
     // Connect to a WebSocket for the in-progress call
@@ -27,8 +28,10 @@ export function initSideBand(callId: string, interviewId: string) {
     // Listen for and parse server events
     ws.on("message", function incoming(message: any) {
         const response = JSON.parse(message.toString());
-        if (response.type === "response.done") {
-            // console.log(JSON.stringify(response));
+        if (response.type === "response.output_audio_transcript.done") {
+            prisma.message
+                .create({ data: { interviewId, type: "Assistant", message: response.transcript } })
+                .catch((err) => console.error("Failed to save AI transcript:", err));
         }
     });
 }

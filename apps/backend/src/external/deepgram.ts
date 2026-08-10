@@ -1,3 +1,5 @@
+import { prisma } from "../../db";
+
 const DEEPGRAM_API_KEY = process.env.DEEPGRAM_TOKEN;
 
 const MAX_RECONNECT_ATTEMPTS = 5;
@@ -112,9 +114,10 @@ export class InterviewAudioSession {
         }
     }
 
-    private save(userId: string, text: string) {
-        console.log(`Relaying to User [${userId}]: ${text}`);
-        // TODO: Send this back over your client's WebSocket connection (Socket.io, WS, etc.)
+    private save(interviewId: string, text: string) {
+        prisma.message
+            .create({ data: { interviewId, type: "User", message: text } })
+            .catch((err) => console.error("Failed to save user transcript:", err));
     }
 
     public close() {
