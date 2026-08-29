@@ -6,7 +6,7 @@
   }
 
   body {
-    @apply relative m-0 min-h-screen min-w-[320px] overflow-hidden bg-background text-foreground;
+    @apply relative m-0 min-h-screen min-w-[320px] overflow-x-hidden bg-background text-foreground;
   }
 }
 
