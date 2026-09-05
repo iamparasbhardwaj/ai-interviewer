@@ -15,6 +15,15 @@ type Errors = { resume?: string; summary?: string };
 const MAX_FILE_BYTES = 3.5 * 1024 * 1024;
 const MAX_FILE_LABEL = "3MB";
 
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve((reader.result as string).split(",")[1] ?? "");
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
 /**
  * Mode switch: two ghost tabs sharing the nav-link underline treatment, so
  * choosing between a PDF and a pasted summary reads as the same affordance
@@ -229,13 +238,11 @@ export function Form() {
 
     setLoading(true);
     try {
-      const formData = new FormData();
-      if (mode === "file" && resumeFile) {
-        formData.append("resume", resumeFile);
-      } else {
-        formData.append("summary", summary.trim());
-      }
-      const response = await axios.post(`${BACKEND_URL}/api/v1/pre-interview`, formData);
+      const payload =
+        mode === "file" && resumeFile
+          ? { resume: { content: await fileToBase64(resumeFile), filename: resumeFile.name } }
+          : { summary: summary.trim() };
+      const response = await axios.post(`${BACKEND_URL}/api/v1/pre-interview`, payload);
       navigate(`/interview/${response.data.id}`);
     } catch {
       setSubmitError("Couldn't start the interview. Check your connection and try again.");

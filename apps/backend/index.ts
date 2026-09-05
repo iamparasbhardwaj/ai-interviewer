@@ -1,123 +1,13 @@
-import express from "express";
-import { PreInterviewBody } from "./types";
-import { scrapeGitHub } from "./src/scrapers/github"
-import { prisma } from "./db";
-import type { WSData } from "./src/types/websocket"
-import cors from "cors";
-import { initSideBand } from "./src/external/sideband";
-import { transcript } from "./src/controllers/transcript";
+import { createHttpApp, HTTP_PORT } from "./src/config/httpConfig";
+import { apiRouter } from "./src/routes/restApi";
+import { createWsServer } from "./src/config/wsConfig";
 
-const app = express();
-app.use(express.json());
-app.use(cors());
-// Parse raw SDP payloads posted from the browser
-app.use(express.text({ type: ["application/sdp", "text/plain"] }));
+const app = createHttpApp();
 
-const sessionConfig = JSON.stringify({
-    type: "realtime",
-    model: "gpt-realtime-2.1-mini",
-    audio: { output: { voice: "marin" } },
-});
+app.use("/api", apiRouter);
 
-app.post("/api/v1/pre-interview", async (req, res) => {
-    console.log(req.body);
-    const { success, data } = PreInterviewBody.safeParse(req.body);
-    if (!success) {
-        res.status(422).json({
-            message: "Incorrect Body."
-        })
-        return;
-    }
+app.listen(HTTP_PORT);
+console.log(`App running on port ${HTTP_PORT}`);
 
-
-    // TODO - URL Can be malformed, probably use an SLM here.
-    const githubUrl = data.github.endsWith("/") ? data.github.slice(0, -1) : data.github;
-    //const linkedInUrl = data.linkedin.endsWith("/") ? data.linkedin.slice(0,-1) : data.linkedin;
-
-    const githubUsername = githubUrl.split("/").pop();
-
-    // Scrape linked by urself -> PLAY RIGHT + PROXY (DATA IMPULSE ) + DUMMY USERS
-    //const linkedUsername = linkedInUrl.split("/").pop();
-
-    const userRepos = await scrapeGitHub(githubUsername!);
-
-    const interview = await prisma.interview.create({
-        data: {
-            githubMetadata: JSON.stringify(userRepos),
-            status: "Pre",
-            score: 0
-        }
-    });
-
-    res.json({ id: interview.id });
-
-
-});
-
-// An endpoint which creates a Realtime API session.
-app.post("/api/v1/session/:interviewId", async (req, res) => {
-    const fd = new FormData();
-    fd.set("sdp", req.body);
-    fd.set("session", sessionConfig);
-
-    try {
-        const r = await fetch("https://api.openai.com/v1/realtime/calls", {
-            method: "POST",
-            headers: {
-                Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-                "OpenAI-Safety-Identifier": "hashed-user-id",
-            },
-            body: fd,
-        });
-        // Send back the SDP we received from the OpenAI REST API
-        const sdp = await r.text();
-        const location = r.headers.get("Location");
-        const callId = location?.split("/").pop()!;
-        console.log(callId);
-        res.send(sdp);
-        initSideBand(callId, req.params.interviewId);
-    } catch (error) {
-        console.error("Token generation error:", error);
-        res.status(500).json({ error: "Failed to generate token" });
-    }
-});
-
-app.listen(3001);
-console.log("App running on port 3001");
-
-
-// index.ts - Basic WebSocket echo server with Bun
-// Bun.serve() handles both HTTP and WebSocket connections in a single function
-
-const server = Bun.serve({
-    port: 8080,
-
-    // Handle regular HTTP requests
-    fetch(request, server) {
-        const url = new URL(request.url);
-
-        // Upgrade HTTP connection to WebSocket when client requests it
-        if (url.pathname === "/transcript") {
-            const interviewId = url.searchParams.get("interviewId");
-            if (!interviewId) {
-                return new Response("Missing interviewId", { status: 400 });
-            }
-            const sampleRate = Number(url.searchParams.get("sampleRate")) || 48000;
-            console.log(`Interview ID is ${interviewId}`);
-            const upgraded = server.upgrade(request, {
-                data: { interviewId, sampleRate } satisfies WSData,
-            });
-
-            if (!upgraded) {
-                return new Response("Upgrade failed", { status: 400 });
-            }
-            return; // upgrade() handles the response
-        }
-        return new Response("Not found", { status: 404 });
-    },
-
-    // WebSocket event handlers
-    websocket: transcript
-});
-
-console.log(`WebSocket server running at http://localhost:${server.port}`);
+const wsServer = createWsServer();
+console.log(`WebSocket server running at http://localhost:${wsServer.port}`);

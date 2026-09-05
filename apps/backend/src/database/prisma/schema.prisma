@@ -21,12 +21,12 @@ model ApiKeys {
 }
 
 model Interview {
-  id             String          @id @default(uuid())
-  githubMetadata String
-  status         InterviewStatus
-  score          Int
-  conversation   Message[]
-  createdOn      DateTime        @default(now())
+  id           String          @id @default(uuid())
+  status       InterviewStatus
+  score        Int
+  conversation Message[]
+  documents    Document[]
+  createdOn    DateTime        @default(now())
 }
 
 model Message {
@@ -38,6 +38,17 @@ model Message {
   interview   Interview         @relation(fields: [interviewId], references: [id])
 }
 
+model Document {
+  id          String       @id @default(uuid())
+  filePath    String
+  fileType    DocumentType
+  interviewId String
+  createdOn   DateTime     @default(now())
+  interview   Interview    @relation(fields: [interviewId], references: [id])
+
+  @@index([interviewId])
+}
+
 enum ModelConversation {
   User
   Assistant
@@ -47,4 +58,9 @@ enum InterviewStatus {
   Pre
   InProgress
   Done
+}
+
+enum DocumentType {
+  Resume
+  Summary
 }
